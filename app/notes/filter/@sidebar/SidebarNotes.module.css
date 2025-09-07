@@ -1,0 +1,24 @@
+.container {
+  padding: 12px;
+}
+
+.menuList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.menuLink {
+  display: block;
+  padding: 8px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #222;
+}
+
+.menuLink:hover {
+  background: #eee;
+}

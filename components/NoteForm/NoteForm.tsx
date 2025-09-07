@@ -1,98 +1,90 @@
 "use client";
 
-import { Formik, Form, Field, ErrorMessage } from "formik";
-import * as Yup from "yup";
-import { createNote } from "@/lib/api";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { NoteTag } from "@/types/note";
-import css from "./NoteForm.module.css";
+import { createNote } from "@/lib/api";
 
-interface NoteFormProps {
-  onSuccess: () => void;
-  onCancel: () => void;
-}
+type BackendTag = "Todo" | "Work" | "Personal" | "Meeting" | "Shopping";
 
-const initialValues = { title: "", content: "", tag: "" as NoteTag };
-
-const schema = Yup.object({
-  title: Yup.string().min(3).max(50).required("Title is required"),
-  content: Yup.string().min(3).max(500).required("Content is required"),
-  tag: Yup.mixed<NoteTag>()
-    .oneOf(["Todo", "Work", "Personal", "Meeting", "Shopping"])
-    .required("Tag is required"),
-});
-
-export default function NoteForm({ onSuccess, onCancel }: NoteFormProps) {
+export default function NoteForm() {
+  const router = useRouter();
   const qc = useQueryClient();
 
-  const { mutateAsync, isPending } = useMutation({
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [tag, setTag] = useState<BackendTag>("Todo");
+
+  const { mutateAsync, isPending, error } = useMutation({
     mutationFn: createNote,
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["notes"] });
+      router.push("/notes/filter/All");
+    },
   });
 
+  const handleSave = async () => {
+    if (!title.trim() || !content.trim()) return;
+    await mutateAsync({ title: title.trim(), content: content.trim(), tag });
+  };
+
   return (
-    <Formik
-      initialValues={initialValues}
-      validationSchema={schema}
-      onSubmit={async (values, { resetForm }) => {
-        await mutateAsync(values);
-        // ✅ інвалідовуємо всі варіації списку нотаток (будь-яка сторінка/пошук)
-        await qc.invalidateQueries({ queryKey: ["notes"] });
-        resetForm();
-        onSuccess();
-      }}
-    >
-      <Form className={css.form}>
-        <label className={css.formGroup}>
-          Title
-          <Field className={css.input} name="title" placeholder="Note title" />
-          <ErrorMessage className={css.error} name="title" component="span" />
-        </label>
+    <div role="form" aria-labelledby="new-note-title">
+      <h2 id="new-note-title" style={{ marginBottom: 12 }}>
+        Create note
+      </h2>
 
-        <label className={css.formGroup}>
-          Content
-          <Field
-            className={css.textarea}
-            as="textarea"
-            name="content"
-            rows={5}
-            placeholder="Write something..."
-          />
-          <ErrorMessage className={css.error} name="content" component="span" />
-        </label>
+      <label style={{ display: "block", marginBottom: 8 }}>
+        Title
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required
+          style={{ display: "block", width: "100%", marginTop: 4 }}
+        />
+      </label>
 
-        <label className={css.formGroup}>
-          Tag
-          <Field className={css.select} as="select" name="tag">
-            <option value="" disabled>
-              Select tag
-            </option>
-            <option value="Todo">Todo</option>
-            <option value="Work">Work</option>
-            <option value="Personal">Personal</option>
-            <option value="Meeting">Meeting</option>
-            <option value="Shopping">Shopping</option>
-          </Field>
-          <ErrorMessage className={css.error} name="tag" component="span" />
-        </label>
+      <label style={{ display: "block", marginBottom: 8 }}>
+        Content
+        <textarea
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          required
+          rows={6}
+          style={{ display: "block", width: "100%", marginTop: 4 }}
+        />
+      </label>
 
-        <div className={css.actions}>
-          <button
-            className={css.cancelButton}
-            type="button"
-            onClick={onCancel}
-            disabled={isPending}
-          >
-            Cancel
-          </button>
-          <button
-            className={css.submitButton}
-            type="submit"
-            disabled={isPending}
-          >
-            {isPending ? "Creating..." : "Create"}
-          </button>
-        </div>
-      </Form>
-    </Formik>
+      <label style={{ display: "block", marginBottom: 12 }}>
+        Tag
+        <select
+          value={tag}
+          onChange={(e) => setTag(e.target.value as BackendTag)}
+          style={{ display: "block", marginTop: 4 }}
+        >
+          <option value="Todo">Todo</option>
+          <option value="Work">Work</option>
+          <option value="Personal">Personal</option>
+          <option value="Meeting">Meeting</option>
+          <option value="Shopping">Shopping</option>
+        </select>
+      </label>
+
+      {error && (
+        <p style={{ color: "crimson", marginBottom: 8 }}>
+          {(error as Error).message || "Create failed"}
+        </p>
+      )}
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <button type="button" disabled={isPending} onClick={handleSave}>
+          {isPending ? "Saving…" : "Save"}
+        </button>
+        <button type="button" onClick={() => router.back()}>
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
