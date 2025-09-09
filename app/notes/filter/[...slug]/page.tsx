@@ -1,38 +1,44 @@
 // app/notes/filter/[...slug]/page.tsx
-import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
 import NotesClient from "./Notes.client";
-import { fetchNotes } from "@/lib/api";
 import type { UITag } from "@/types/note";
-
-export const dynamic = "force-dynamic";
 
 type Params = { slug?: string[] };
 type Search = { page?: string; query?: string };
 
-export default async function NotesFilteredPage({
+const VALID_TAGS: ReadonlyArray<UITag> = [
+  "All",
+  "Todo",
+  "Work",
+  "Personal",
+  "Meeting",
+  "Shopping",
+];
+
+export default async function NotesPage({
   params,
   searchParams,
 }: {
-  params: Params | Promise<Params>;
-  searchParams: Search | Promise<Search>;
+  params: Promise<Params>;
+  searchParams?: Promise<Search>;
 }) {
-  const p = typeof (params as any)?.then === "function" ? await (params as Promise<Params>) : (params as Params);
-  const sp = typeof (searchParams as any)?.then === "function" ? await (searchParams as Promise<Search>) : (searchParams as Search);
+  const { slug } = await params;
+  const sp = (await searchParams) ?? {};
 
-  const tagFromSlug = p?.slug && p.slug.length > 0 ? decodeURIComponent(p.slug[0]) : "All";
-  const tag = (tagFromSlug as UITag) ?? "All";
-  const page = Number(sp?.page) > 0 ? Number(sp.page) : 1;
-  const query = (sp?.query ?? "").trim();
+  // тег беремо з першого сегмента catch-all
+  const rawTag =
+    Array.isArray(slug) && slug.length > 0
+      ? decodeURIComponent(slug[0])
+      : "All";
+  const tag: UITag = (VALID_TAGS as readonly string[]).includes(rawTag)
+    ? (rawTag as UITag)
+    : "All";
 
-  const qc = new QueryClient();
-  await qc.prefetchQuery({
-    queryKey: ["notes", { page, query, tag }],
-    queryFn: () => fetchNotes({ page, query, tag }),
-  });
+  // page/query з рядка запиту
+  const page =
+    typeof sp.page === "string" ? Math.max(1, parseInt(sp.page, 10) || 1) : 1;
+  const query = typeof sp.query === "string" ? sp.query : "";
 
   return (
-    <HydrationBoundary state={dehydrate(qc)}>
-      <NotesClient initialPage={page} initialQuery={query} initialTag={tag} />
-    </HydrationBoundary>
+    <NotesClient initialPage={page} initialQuery={query} initialTag={tag} />
   );
 }
