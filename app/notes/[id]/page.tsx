@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { fetchNoteById } from "@/lib/api";
-import css from "@/styles/NotePreview.module.css";
+import css from "@/NotePreview.module.css";
 
 export default async function NotePage({
   params,
