@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: { ignoreDuringBuilds: true }, // ⬅️ вимикає ESLint на прод-білді
+  eslint: { ignoreDuringBuilds: true }, // вимикаємо ESLint на білді
   typescript: { ignoreBuildErrors: false }, // типи залишаємо увімкненими
 };
 
-module.exports = nextConfig;
+export default nextConfig;
