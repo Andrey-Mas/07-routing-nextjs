@@ -1,9 +1,8 @@
-// app/notes/filter/@overlay/(..)[id]/page.tsx
+// app/@modal/(.)notes/[id]/page.tsx
 import Modal from "@/components/Modal/Modal";
 import NoteModal from "@/components/NoteModal/NoteModal";
-import NoteForm from "@/components/NoteForm/NoteForm";
 
-export default async function NoteOverlayPage({
+export default async function NoteDetailsModal({
   params,
   searchParams,
 }: {
@@ -14,14 +13,6 @@ export default async function NoteOverlayPage({
   const sp = (await searchParams) ?? {};
   const from =
     typeof sp.from === "string" && sp.from ? sp.from : "/notes/filter/All";
-
-  if (id === "new") {
-    return (
-      <Modal title="Create note" closeHref={from}>
-        <NoteForm backTo={from} />
-      </Modal>
-    );
-  }
 
   return (
     <Modal title="Note details" closeHref={from}>

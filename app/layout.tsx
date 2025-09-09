@@ -1,27 +1,33 @@
-import type { Metadata } from "next";
-import "./globals.css";
+// app/layout.tsx
+import type { ReactNode } from "react";
+import Providers from "./providers";
 import Header from "../components/Header/Header";
 import Footer from "../components/Footer/Footer";
-import TanStackProvider from "../components/TanStackProvider/TanStackProvider";
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "NoteHub",
-  description: "Notes manager built with Next.js",
+  description: "Notes app with filters & modals",
 };
 
 export default function RootLayout({
   children,
+  modal,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
+  modal: ReactNode;
 }) {
   return (
     <html lang="en">
-      <body>
-        <TanStackProvider>
+      <body
+        style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+      >
+        <Providers>
           <Header />
-          {children}
+          <main style={{ flex: 1 }}>{children}</main>
           <Footer />
-        </TanStackProvider>
+          {modal}{" "}
+          {/* важливо: модалки теж всередині провайдера, бо в них useQuery */}
+        </Providers>
       </body>
     </html>
   );
