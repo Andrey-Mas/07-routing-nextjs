@@ -1,7 +1,6 @@
-// app/notes/[id]/page.tsx
 import Link from "next/link";
 import { fetchNoteById } from "@/lib/api";
-import css from "../../../styles/NotePreview.module.css"; // ⬅️ ось так
+import css from "./NotePreview.module.css"; // ⬅️ локальний css поруч
 
 export default async function NotePage({
   params,
