@@ -1,6 +1,7 @@
+// app/notes/[id]/page.tsx
 import Link from "next/link";
 import { fetchNoteById } from "@/lib/api";
-import css from "./NotePreview.module.css";
+import css from "../../../styles/NotePreview.module.css"; // ⬅️ ось так
 
 export default async function NotePage({
   params,
@@ -18,7 +19,6 @@ export default async function NotePage({
 
   return (
     <main className={css.container}>
-      {/* Кнопка-навігація як посилання */}
       <Link href={from} className={css.backBtn}>
         ← Back
       </Link>
