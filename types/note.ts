@@ -1,15 +1,14 @@
 // types/note.ts
-
 export type BackendTag = "Todo" | "Work" | "Personal" | "Meeting" | "Shopping";
-export type UITag = BackendTag | "All";
+export type UITag = "All" | BackendTag;
 
 export interface Note {
   id: string;
   title: string;
   content: string;
   tag: BackendTag;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface FetchNotesResponse {
