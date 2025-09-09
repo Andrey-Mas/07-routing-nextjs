@@ -1,25 +1,19 @@
-"use client";
-
-import { use } from "react";
-import { useSearchParams } from "next/navigation";
+// app/notes/filter/@overlay/(..)[id]/page.tsx
 import Modal from "@/components/Modal/Modal";
 import NoteModal from "@/components/NoteModal/NoteModal";
 import NoteForm from "@/components/NoteForm/NoteForm";
 
-type Params = { id: string };
-
-export default function NoteOverlayPage({
+export default async function NoteOverlayPage({
   params,
+  searchParams,
 }: {
-  params: Promise<Params> | Params;
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ from?: string }>;
 }) {
-  const { id } =
-    typeof (params as any)?.then === "function"
-      ? use(params as Promise<Params>)
-      : (params as Params);
-
-  const sp = useSearchParams();
-  const from = sp?.get("from") ?? "/notes/filter/All";
+  const { id } = await params;
+  const sp = (await searchParams) ?? {};
+  const from =
+    typeof sp.from === "string" && sp.from ? sp.from : "/notes/filter/All";
 
   if (id === "new") {
     return (
