@@ -1,5 +1,5 @@
 // app/notes/filter/layout.tsx
-import css from "./LayoutNotes.module.css";
+import css from "./Layout.module.css";
 
 export default function NotesFilterLayout({
   children,
