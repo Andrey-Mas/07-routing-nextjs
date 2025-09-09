@@ -1,16 +1,17 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createNote } from "@/lib/api";
+import css from "./NoteForm.module.css";
 
 type BackendTag = "Todo" | "Work" | "Personal" | "Meeting" | "Shopping";
 
-export default function NoteForm() {
+export default function NoteForm({ backTo }: { backTo?: string }) {
   const router = useRouter();
   const qc = useQueryClient();
-
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tag, setTag] = useState<BackendTag>("Todo");
@@ -19,49 +20,49 @@ export default function NoteForm() {
     mutationFn: createNote,
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["notes"] });
-      router.push("/notes/filter/All");
+      await qc.refetchQueries({ queryKey: ["notes"], type: "active" });
+      router.replace(backTo ?? "/notes/filter/All");
     },
   });
 
-  const handleSave = async () => {
-    if (!title.trim() || !content.trim()) return;
-    await mutateAsync({ title: title.trim(), content: content.trim(), tag });
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await mutateAsync({ title, content, tag });
   };
 
   return (
-    <div role="form" aria-labelledby="new-note-title">
-      <h2 id="new-note-title" style={{ marginBottom: 12 }}>
-        Create note
-      </h2>
-
-      <label style={{ display: "block", marginBottom: 8 }}>
-        Title
+    <form className={css.form} onSubmit={onSubmit}>
+      <div className={css.formGroup}>
+        <label htmlFor="title">Title</label>
         <input
+          id="title"
+          className={css.input}
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required
-          style={{ display: "block", width: "100%", marginTop: 4 }}
         />
-      </label>
+      </div>
 
-      <label style={{ display: "block", marginBottom: 8 }}>
-        Content
+      <div className={css.formGroup}>
+        <label htmlFor="content">Content</label>
         <textarea
+          id="content"
+          className={css.textarea}
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          required
           rows={6}
-          style={{ display: "block", width: "100%", marginTop: 4 }}
+          required
         />
-      </label>
+      </div>
 
-      <label style={{ display: "block", marginBottom: 12 }}>
-        Tag
+      <div className={css.formGroup}>
+        <label htmlFor="tag">Tag</label>
         <select
+          id="tag"
+          className={css.select}
           value={tag}
           onChange={(e) => setTag(e.target.value as BackendTag)}
-          style={{ display: "block", marginTop: 4 }}
         >
           <option value="Todo">Todo</option>
           <option value="Work">Work</option>
@@ -69,22 +70,20 @@ export default function NoteForm() {
           <option value="Meeting">Meeting</option>
           <option value="Shopping">Shopping</option>
         </select>
-      </label>
+      </div>
 
-      {error && (
-        <p style={{ color: "crimson", marginBottom: 8 }}>
-          {(error as Error).message || "Create failed"}
-        </p>
-      )}
+      {error && <p className={css.error}>{(error as Error).message}</p>}
 
-      <div style={{ display: "flex", gap: 8 }}>
-        <button type="button" disabled={isPending} onClick={handleSave}>
+      <div className={css.actions}>
+        {backTo && (
+          <Link href={backTo} scroll={false} className={css.cancelButton}>
+            Cancel
+          </Link>
+        )}
+        <button type="submit" disabled={isPending} className={css.submitButton}>
           {isPending ? "Saving…" : "Save"}
         </button>
-        <button type="button" onClick={() => router.back()}>
-          Cancel
-        </button>
       </div>
-    </div>
+    </form>
   );
 }

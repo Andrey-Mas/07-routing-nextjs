@@ -5,30 +5,27 @@ import TagsMenu from "@/components/TagsMenu/TagsMenu";
 export default function Header() {
   return (
     <header className={css.header}>
-      <div className={css.container}>
-        <Link href="/" className={css.logo}>
-          NoteHub
-        </Link>
+      <Link href="/" className={css.headerLink}>
+        NoteHub
+      </Link>
 
-        <nav>
-          <ul className={css.navigation}>
-            <li>
-              <Link href="/" className={css.link}>
-                Home
-              </Link>
-            </li>
-            <li>
-              {/* замість посилання Notes */}
-              <TagsMenu />
-            </li>
-            <li>
-              <Link href="/about" className={css.link}>
-                About
-              </Link>
-            </li>
-          </ul>
-        </nav>
-      </div>
+      <nav aria-label="Main">
+        <ul className={css.navigation}>
+          <li className={css.navigationItem}>
+            <Link href="/" className={css.navigationLink}>
+              Home
+            </Link>
+          </li>
+          <li className={css.navigationItem}>
+            <TagsMenu />
+          </li>
+          <li className={css.navigationItem}>
+            <Link href="/about" className={css.navigationLink}>
+              About
+            </Link>
+          </li>
+        </ul>
+      </nav>
     </header>
   );
 }

@@ -1,40 +1,40 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { updateNote } from "@/lib/api";
+import css from "./NoteForm.module.css";
 
 type BackendTag = "Todo" | "Work" | "Personal" | "Meeting" | "Shopping";
 
-interface EditNoteFormProps {
+export default function EditNoteForm({
+  id,
+  initial,
+  backTo,
+}: {
   id: string;
-  initial: {
-    title: string;
-    content: string;
-    tag: BackendTag;
-  };
-}
-
-export default function EditNoteForm({ id, initial }: EditNoteFormProps) {
+  initial: { title: string; content: string; tag: BackendTag };
+  backTo?: string;
+}) {
   const router = useRouter();
   const qc = useQueryClient();
 
-  const [title, setTitle] = useState(initial.title ?? "");
-  const [content, setContent] = useState(initial.content ?? "");
-  const [tag, setTag] = useState<BackendTag>(initial.tag ?? "Todo");
+  const [title, setTitle] = useState(initial.title);
+  const [content, setContent] = useState(initial.content);
+  const [tag, setTag] = useState<BackendTag>(initial.tag);
 
   const { mutateAsync, isPending, error } = useMutation({
-    mutationFn: (patch: { title: string; content: string; tag: BackendTag }) =>
-      updateNote(id, patch),
+    mutationFn: (payload: {
+      title: string;
+      content: string;
+      tag: BackendTag;
+    }) => updateNote(id, payload),
     onSuccess: async () => {
-      // оновлюємо кеш списку і конкретної нотатки
-      await Promise.all([
-        qc.invalidateQueries({ queryKey: ["notes"] }),
-        qc.invalidateQueries({ queryKey: ["note", id] }),
-      ]);
-      // повертаємось на список (або використай router.back(), якщо відкрито з модалки)
-      router.push("/notes/filter/All");
+      await qc.invalidateQueries({ queryKey: ["notes"] });
+      await qc.refetchQueries({ queryKey: ["notes"], type: "active" });
+      router.replace(backTo ?? "/notes/filter/All");
     },
   });
 
@@ -44,29 +44,36 @@ export default function EditNoteForm({ id, initial }: EditNoteFormProps) {
   };
 
   return (
-    <form onSubmit={onSubmit} noValidate>
-      <label>
-        Title
+    <form className={css.form} onSubmit={onSubmit}>
+      <div className={css.formGroup}>
+        <label htmlFor="title">Title</label>
         <input
+          id="title"
+          className={css.input}
+          type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required
         />
-      </label>
+      </div>
 
-      <label>
-        Content
+      <div className={css.formGroup}>
+        <label htmlFor="content">Content</label>
         <textarea
+          id="content"
+          className={css.textarea}
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={6}
           required
         />
-      </label>
+      </div>
 
-      <label>
-        Tag
+      <div className={css.formGroup}>
+        <label htmlFor="tag">Tag</label>
         <select
+          id="tag"
+          className={css.select}
           value={tag}
           onChange={(e) => setTag(e.target.value as BackendTag)}
         >
@@ -76,16 +83,18 @@ export default function EditNoteForm({ id, initial }: EditNoteFormProps) {
           <option value="Meeting">Meeting</option>
           <option value="Shopping">Shopping</option>
         </select>
-      </label>
+      </div>
 
-      {error && <p style={{ color: "crimson" }}>{(error as Error).message}</p>}
+      {error && <p className={css.error}>{(error as Error).message}</p>}
 
-      <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-        <button type="submit" disabled={isPending}>
+      <div className={css.actions}>
+        {backTo && (
+          <Link href={backTo} scroll={false} className={css.cancelButton}>
+            Cancel
+          </Link>
+        )}
+        <button type="submit" disabled={isPending} className={css.submitButton}>
           {isPending ? "Saving…" : "Save changes"}
-        </button>
-        <button type="button" onClick={() => router.back()}>
-          Cancel
         </button>
       </div>
     </form>

@@ -10,10 +10,10 @@ export default function NotesLayout({
   overlay: React.ReactNode;
 }) {
   return (
-    <div className={css.layout}>
+    <div className={css.container}>
       <aside className={css.sidebar}>{sidebar}</aside>
-      <section className={css.content}>{children}</section>
-      {overlay} {/* ← тут зʼявляється модалка */}
+      <div className={css.notesWrapper}>{children}</div>
+      {overlay}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 // lib/api.ts
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import type { Note, BackendTag, FetchNotesResponse } from "@/types/note";
 
 /* ================== CONFIG ================== */
@@ -13,104 +13,80 @@ const TOKEN = (
   ""
 ).trim();
 
-export const PAGE_SIZE =
-  Number(process.env.NEXT_PUBLIC_NOTES_PAGE_SIZE ?? 10) || 10;
+export const PAGE_SIZE = Number(process.env.NEXT_PUBLIC_NOTES_PAGE_SIZE || 12);
 
-/** можливі ключі для пошуку (бекенд може відрізнятися) */
-const SEARCH_KEYS = ["search", "query", "q", "title"] as const;
-type SearchKey = (typeof SEARCH_KEYS)[number];
-
-/** можливі ключі розміру сторінки */
-const PAGE_KEYS = ["perPage", "limit", "pageSize"] as const;
-type PageKey = (typeof PAGE_KEYS)[number];
-
-/** Якщо в .env задано фіксований ключ пошуку — використаємо його (як у HW06) */
-let preferredSearchKey: SearchKey | null =
-  ((process.env.NEXT_PUBLIC_NOTES_SEARCH_KEY as SearchKey) ?? null) || null;
-
-/** Кешований робочий ключ для розміру сторінки */
-let preferredPageKey: PageKey | null = null;
-
-/* ============== AXIOS INSTANCE ============== */
-export const axiosInstance = axios.create({
+/* ============== Axios instance ============== */
+const api = axios.create({
   baseURL: BASE_URL,
   headers: {
+    Accept: "application/json",
     "Content-Type": "application/json",
     ...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {}),
   },
+  withCredentials: false,
 });
 
-/* ================== HELPERS ================== */
-const lsGet = (k: string) =>
-  typeof window === "undefined" ? null : window.localStorage.getItem(k);
-const lsSet = (k: string, v: string) =>
-  typeof window === "undefined" ? void 0 : window.localStorage.setItem(k, v);
-
-/** Нормалізація терму пошуку */
-const clean = (s: string) => s.trim().replace(/[^\p{L}\p{N}\s-]/gu, "");
-
-/** Підтримує різні форми відповіді бекенда */
-function normalizeNotesResponse(
-  raw: any,
-  fallback: { page: number; limit: number },
-): FetchNotesResponse {
-  // GoIT формат: { data: [], page, perPage, totalItems, totalPages }
-  if (Array.isArray(raw?.data)) {
-    const items: Note[] = (raw.data as any[]).map((n) => ({
-      ...n,
-      tag: n.tag as BackendTag,
-    }));
-    const total = Number(raw.totalItems ?? items.length ?? 0) || 0;
-    const page = Number(raw.page ?? fallback.page) || fallback.page;
-    const limit = Number(raw.perPage ?? fallback.limit) || fallback.limit;
-    const totalPages =
-      Number(raw.totalPages) ||
-      Math.max(1, Math.ceil(total / Math.max(1, limit)));
-    return { items, total, page, limit, totalPages };
-  }
-
-  // Старий формат HW06: { notes: [], totalPages, page }
-  if (Array.isArray(raw?.notes)) {
-    const items: Note[] = (raw.notes as any[]).map((n) => ({
-      ...n,
-      tag: n.tag as BackendTag,
-    }));
-    const totalPages =
-      Number(raw.totalPages) ||
-      Math.max(
-        1,
-        Math.ceil(
-          (items.length || fallback.limit) / Math.max(1, fallback.limit),
-        ),
-      );
-    const page = Number(raw.page ?? fallback.page) || fallback.page;
-    const limit = fallback.limit;
-    const total = totalPages * limit;
-    return { items, total, page, limit, totalPages };
-  }
-
-  // Запасні варіанти
-  const items: Note[] = Array.isArray(raw)
-    ? raw
-    : Array.isArray(raw?.items)
-      ? raw.items
-      : [];
-  const total = Number(raw?.total ?? items.length ?? 0) || 0;
-  const page = Number(raw?.page ?? fallback.page) || fallback.page;
-  const limit = Number(raw?.limit ?? fallback.limit) || fallback.limit;
-  const totalPages = Math.max(1, Math.ceil(total / Math.max(1, limit)));
-  return { items, total, page, limit, totalPages };
-}
-
-/* ==================== API ==================== */
+/* ==================== Types ==================== */
 export interface FetchNotesParams {
   page?: number;
   query?: string;
-  /** бекенд-тег; якщо "All" — не відправляємо */
+  /** бекенд-тег; якщо "All" — НЕ відправляємо у запиті */
   tag?: string;
 }
 
-/** Список нотаток з пагінацією/пошуком/фільтром за тегом */
+/* ==================== Helpers ==================== */
+const n = (v: unknown, d: number) => {
+  const num = Number(v);
+  return Number.isFinite(num) && num > 0 ? num : d;
+};
+
+/** Універсальна нормалізація форми відповіді бекенда у формат FetchNotesResponse */
+function normalizeNotesResponse(raw: any, perPage: number): FetchNotesResponse {
+  const candidates = [
+    raw?.items,
+    raw?.results,
+    raw?.docs,
+    raw?.data?.items,
+    raw?.data?.results,
+    raw?.data?.docs,
+    raw?.data,
+    raw?.notes,
+    Array.isArray(raw) ? raw : undefined,
+  ];
+  const items: Note[] =
+    (candidates.find((c) => Array.isArray(c)) as Note[]) || [];
+
+  const total = n(
+    raw?.total ?? raw?.totalHits ?? raw?.count ?? raw?.data?.total,
+    items.length,
+  );
+  const page = n(raw?.page ?? raw?.currentPage ?? raw?.data?.page, 1);
+  const limit = n(raw?.limit ?? raw?.perPage ?? raw?.data?.limit, perPage);
+
+  const totalPagesRaw = raw?.totalPages ?? raw?.pages ?? raw?.data?.totalPages;
+  const totalPages =
+    Number.isFinite(Number(totalPagesRaw)) && Number(totalPagesRaw) > 0
+      ? Number(totalPagesRaw)
+      : Math.max(
+          1,
+          Math.ceil((total || items.length) / (limit || perPage || 1)),
+        );
+
+  return { items, total, page, limit, totalPages };
+}
+
+/* ===== Adaptive param selection (окремо для size і для search) ===== */
+type SizeKey = "perPage" | "limit";
+type QueryKey = "query" | "search" | "q";
+
+/** ⚙️ Розумні дефолти, щоб уникнути перших 400 */
+let SELECTED_SIZE_KEY: SizeKey | null = "perPage";
+let SELECTED_QUERY_KEY: QueryKey | null = "search";
+
+const SIZE_KEYS: readonly SizeKey[] = ["perPage", "limit"] as const;
+const QUERY_KEYS: readonly QueryKey[] = ["search", "query", "q"] as const; // search спробуємо першим
+
+/* ==================== API ==================== */
 export const fetchNotes = async (
   params: FetchNotesParams = {},
   options?: { signal?: AbortSignal },
@@ -120,125 +96,140 @@ export const fetchNotes = async (
       ? (params.page as number)
       : 1;
 
-  const q = clean(params.query ?? "");
+  const query = (params.query ?? "").trim();
   const tag = params.tag && params.tag !== "All" ? params.tag : undefined;
 
-  // базові параметри
-  const baseParams: Record<string, string | number> = { page };
-  if (preferredPageKey) baseParams[preferredPageKey] = PAGE_SIZE;
-  if (tag) baseParams.tag = tag;
-
-  // піднімемо кеш ключів, якщо ще не ініціалізували
-  preferredSearchKey ??=
-    (lsGet("nh_search_key") as SearchKey | null) ?? preferredSearchKey;
-  preferredPageKey ??= (lsGet("nh_page_key") as PageKey | null) ?? null;
-
-  // 1) короткий пошук — НЕ додаємо поле пошуку, але тег працює
-  if (q.length < 2) {
-    const { data } = await axiosInstance.get("/notes", {
-      params: baseParams,
-      signal: options?.signal,
-    });
-    return normalizeNotesResponse(data, { page, limit: PAGE_SIZE });
-  }
-
-  // 2) якщо знаємо робочий ключ пошуку — використовуємо його
-  if (preferredSearchKey) {
-    const paramsReady: Record<string, string | number> = {
-      ...baseParams,
-      [preferredSearchKey]: q,
+  const call = async (sizeKey: SizeKey, queryKey?: QueryKey) => {
+    const p: Record<string, any> = {
+      page,
+      [sizeKey]: PAGE_SIZE,
+      ...(tag ? { tag } : {}),
     };
-
-    const { data } = await axiosInstance.get("/notes", {
-      params: paramsReady,
+    if (queryKey && query) p[queryKey] = query;
+    const { data } = await api.get("/notes", {
       signal: options?.signal,
+      params: p,
     });
+    return data;
+  };
 
-    // якщо ще не зафіксували pageKey — одноразово підберемо
-    if (!preferredPageKey && (data?.data || data?.notes)) {
-      for (const pk of PAGE_KEYS) {
-        const probeParams: Record<string, string | number> = {
-          page,
-          [pk]: PAGE_SIZE,
-          [preferredSearchKey]: q,
-        };
-        if (tag) probeParams.tag = tag;
-
-        const { data: probe } = await axiosInstance.get("/notes", {
-          params: probeParams,
-          signal: options?.signal,
-        });
-        if (probe?.data || probe?.notes) {
-          preferredPageKey = pk;
-          lsSet("nh_page_key", pk);
-          break;
-        }
+  // 1) Спробуємо з поточними (дефолтними/запам’ятаними) ключами
+  try {
+    const data = await call(
+      (SELECTED_SIZE_KEY as SizeKey) ?? "perPage",
+      query ? ((SELECTED_QUERY_KEY as QueryKey) ?? "search") : undefined,
+    );
+    return normalizeNotesResponse(data, PAGE_SIZE);
+  } catch (err) {
+    const st = (err as AxiosError)?.response?.status;
+    if (!st || st !== 400) {
+      // інші помилки не «підбираємо»
+      if (axios.isAxiosError(err)) {
+        const body = err.response?.data as any;
+        const msg =
+          typeof body === "string" ? body : body?.message || "Request failed";
+        throw new Error(`Failed to load notes (${st ?? "ERR"}). ${msg}`);
       }
+      throw err;
     }
-
-    return normalizeNotesResponse(data, { page, limit: PAGE_SIZE });
-  }
-
-  // 3) автопідбір ключів: перебираємо pageKey та searchKey
-  for (const pk of preferredPageKey ? [preferredPageKey] : PAGE_KEYS) {
-    const withPage: Record<string, string | number> = { page, [pk]: PAGE_SIZE };
-    if (tag) withPage.tag = tag;
-
-    for (const sk of SEARCH_KEYS) {
-      const tryParams = { ...withPage, [sk]: q };
-      const { data } = await axiosInstance.get("/notes", {
-        params: tryParams,
-        signal: options?.signal,
-      });
-
-      if (data?.data || data?.notes) {
-        preferredPageKey = pk;
-        preferredSearchKey = sk;
-        lsSet("nh_page_key", pk);
-        lsSet("nh_search_key", sk);
-        return normalizeNotesResponse(data, { page, limit: PAGE_SIZE });
-      }
+    // 400 — перейдемо до підбору
+    if (st === 400) {
+      // якщо злетіло на дефолтних — скинемо відповідний ключ і підберемо
+      if (SELECTED_QUERY_KEY && query) SELECTED_QUERY_KEY = null;
+      if (SELECTED_SIZE_KEY == null) SELECTED_SIZE_KEY = "perPage"; // safety
     }
   }
 
-  // фолбек
-  return { items: [], total: 0, page, limit: PAGE_SIZE, totalPages: 1 };
+  // 2) Підбір sizeKey (без query, щоб не мішало)
+  if (!SELECTED_SIZE_KEY) {
+    let lastErr: unknown;
+    for (const sk of SIZE_KEYS) {
+      try {
+        const data = await call(sk);
+        SELECTED_SIZE_KEY = sk;
+        return normalizeNotesResponse(data, PAGE_SIZE);
+      } catch (err) {
+        lastErr = err;
+        const st = (err as AxiosError)?.response?.status;
+        if (st && st !== 400) break;
+      }
+    }
+    if (axios.isAxiosError(lastErr)) {
+      const st = lastErr.response?.status;
+      const body = lastErr.response?.data as any;
+      const msg =
+        typeof body === "string" ? body : body?.message || "Bad Request";
+      throw new Error(`Failed to load notes (${st}). ${msg}`);
+    }
+    throw lastErr;
+  }
+
+  // 3) Підбір queryKey (тільки якщо є query та ще не обрано ключ)
+  if (query && !SELECTED_QUERY_KEY) {
+    let lastErr: unknown;
+    for (const qk of QUERY_KEYS) {
+      try {
+        const data = await call(SELECTED_SIZE_KEY, qk);
+        SELECTED_QUERY_KEY = qk;
+        return normalizeNotesResponse(data, PAGE_SIZE);
+      } catch (err) {
+        lastErr = err;
+        const st = (err as AxiosError)?.response?.status;
+        if (st && st !== 400) break;
+      }
+    }
+    if (axios.isAxiosError(lastErr)) {
+      const st = lastErr.response?.status;
+      const body = lastErr.response?.data as any;
+      const msg =
+        typeof body === "string" ? body : body?.message || "Bad Request";
+      throw new Error(`Failed to load notes (${st}). ${msg}`);
+    }
+    throw lastErr;
+  }
+
+  // 4) Ключі відомі — звичайний виклик без зайвих 400
+  const data = await call(
+    SELECTED_SIZE_KEY,
+    query ? (SELECTED_QUERY_KEY ?? "search") : undefined,
+  );
+  return normalizeNotesResponse(data, PAGE_SIZE);
 };
 
-/** Отримати одну нотатку за id */
-export const fetchNoteById = async (id: string): Promise<Note> => {
-  const { data } = await axiosInstance.get(`/notes/${encodeURIComponent(id)}`);
-  const note = data?.data ?? data;
-  return { ...note, tag: note.tag as BackendTag } as Note;
+export const fetchNoteById = async (
+  id: string,
+  options?: { signal?: AbortSignal },
+): Promise<Note> => {
+  if (!id) throw new Error("Note id is required");
+  const { data } = await api.get<Note>(`/notes/${encodeURIComponent(id)}`, {
+    signal: options?.signal,
+  });
+  return data;
 };
 
-/** Створити нотатку (ЛИШЕ POST /notes) */
 export const createNote = async (payload: {
   title: string;
   content: string;
-  tag: "Todo" | "Work" | "Personal" | "Meeting" | "Shopping";
+  tag: BackendTag;
 }): Promise<Note> => {
-  const { data } = await axiosInstance.post("/notes", payload);
-  return (data?.data ?? data) as Note;
+  const { data } = await api.post<Note>("/notes", payload);
+  return data;
 };
 
-/** Оновити нотатку */
 export const updateNote = async (
   id: string,
-  patch: Partial<Pick<Note, "title" | "content" | "tag">>,
+  payload: { title: string; content: string; tag: BackendTag },
 ): Promise<Note> => {
-  const { data } = await axiosInstance.patch(
+  if (!id) throw new Error("Note id is required");
+  const { data } = await api.patch<Note>(
     `/notes/${encodeURIComponent(id)}`,
-    patch,
+    payload,
   );
-  const note = data?.data ?? data;
-  return { ...note, tag: note.tag as BackendTag } as Note;
+  return data;
 };
 
-/** Видалити нотатку */
-export const deleteNote = async (id: string) => {
-  const { data } = await axiosInstance.delete(
-    `/notes/${encodeURIComponent(id)}`,
-  );
-  return data as { ok: boolean };
+export const deleteNote = async (id: string): Promise<{ id: string }> => {
+  if (!id) throw new Error("Note id is required");
+  await api.delete(`/notes/${encodeURIComponent(id)}`);
+  return { id };
 };

@@ -1,48 +1,30 @@
 // app/notes/filter/[...slug]/page.tsx
-import {
-  HydrationBoundary,
-  QueryClient,
-  dehydrate,
-} from "@tanstack/react-query";
+import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
 import NotesClient from "./Notes.client";
 import { fetchNotes } from "@/lib/api";
 import type { UITag } from "@/types/note";
 
 export const dynamic = "force-dynamic";
 
-// підтримка і sync, і async варіантів
-type MaybePromise<T> = T | Promise<T>;
+type Params = { slug?: string[] };
+type Search = { page?: string; query?: string };
 
 export default async function NotesFilteredPage({
   params,
   searchParams,
 }: {
-  params: MaybePromise<{ slug?: string[] }>;
-  searchParams: MaybePromise<Record<string, string | string[] | undefined>>;
+  params: Params | Promise<Params>;
+  searchParams: Search | Promise<Search>;
 }) {
-  // ⚠️ у Next 14.2+ params / searchParams можуть бути Promise — треба await
-  const p =
-    typeof (params as any)?.then === "function"
-      ? await (params as Promise<{ slug?: string[] }>)
-      : (params as { slug?: string[] });
-  const sp =
-    typeof (searchParams as any)?.then === "function"
-      ? await (searchParams as Promise<
-          Record<string, string | string[] | undefined>
-        >)
-      : (searchParams as Record<string, string | string[] | undefined>);
+  const p = typeof (params as any)?.then === "function" ? await (params as Promise<Params>) : (params as Params);
+  const sp = typeof (searchParams as any)?.then === "function" ? await (searchParams as Promise<Search>) : (searchParams as Search);
 
-  const rawTag = p.slug?.[0] ?? "All";
-  const tag = decodeURIComponent(rawTag) as UITag;
-
-  const page = Number(sp.page ?? 1) || 1;
-  const query =
-    typeof sp.query === "string"
-      ? sp.query.trim().replace(/[^\p{L}\p{N}\s-]/gu, "")
-      : "";
+  const tagFromSlug = p?.slug && p.slug.length > 0 ? decodeURIComponent(p.slug[0]) : "All";
+  const tag = (tagFromSlug as UITag) ?? "All";
+  const page = Number(sp?.page) > 0 ? Number(sp.page) : 1;
+  const query = (sp?.query ?? "").trim();
 
   const qc = new QueryClient();
-
   await qc.prefetchQuery({
     queryKey: ["notes", { page, query, tag }],
     queryFn: () => fetchNotes({ page, query, tag }),

@@ -2,33 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { TAGS_UI, UITag } from "@/types/note";
 import css from "./TagsMenu.module.css";
+import { TAGS_UI, UITag } from "@/types/note";
 
 export default function TagsMenu() {
   const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const pathname = usePathname();
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) =>
-      wrapRef.current &&
-      !wrapRef.current.contains(e.target as Node) &&
-      setOpen(false);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     };
-  }, [open]);
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
 
   return (
-    <div className={css.menuContainer} ref={wrapRef}>
+    <div className={css.menuContainer} ref={menuRef}>
       <button
         type="button"
         className={css.menuButton}
@@ -39,24 +31,28 @@ export default function TagsMenu() {
         Notes ▾
       </button>
 
-      <ul className={`${css.menuList} ${open ? css.open : ""}`} role="menu">
-        {TAGS_UI.map((tag: UITag) => {
-          const href =
-            tag === "All" ? "/notes/filter/All" : `/notes/filter/${tag}`;
-          return (
-            <li key={tag} className={css.menuItem} role="none">
-              <Link
-                href={href}
-                className={css.menuLink}
-                role="menuitem"
-                onClick={() => setOpen(false)}
-              >
-                {tag}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+      {open && (
+        <ul className={css.menuList} role="menu">
+          {TAGS_UI.map((tag: UITag) => {
+            const href =
+              tag === "All"
+                ? "/notes/filter/All"
+                : `/notes/filter/${encodeURIComponent(tag)}`;
+            return (
+              <li className={css.menuItem} key={tag} role="none">
+                <Link
+                  href={href}
+                  className={css.menuLink}
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                >
+                  {tag}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

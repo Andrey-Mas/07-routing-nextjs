@@ -1,87 +1,84 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
-import { createPortal } from "react-dom";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import styles from "./Modal.module.css";
+import { useCallback, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import css from "./Modal.module.css";
 
 export default function Modal({
   title,
+  closeHref,
   children,
 }: {
   title?: string;
+  closeHref: string; // URL куди повертатись
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
-  const search = useSearchParams();
 
-  // Куди повертатись, якщо history порожня
-  const fallbackHref = useMemo(() => {
-    // якщо ми в дереві /notes/filter/..., збережемо активний tag/query/page
-    // приклад: /notes/filter/Work?page=2&query=abc
-    const m = pathname.match(/^\/notes\/filter\/([^/?#]+)/);
-    const activeTag = m?.[1] ?? "All";
-    const qs = new URLSearchParams();
-
-    const page = search.get("page");
-    const query = search.get("query");
-    if (page) qs.set("page", page);
-    if (query) qs.set("query", query);
-
-    const base =
-      activeTag && activeTag !== "All"
-        ? `/notes/filter/${encodeURIComponent(activeTag)}`
-        : `/notes/filter/All`;
-
-    return qs.toString() ? `${base}?${qs}` : base;
-  }, [pathname, search]);
-
-  const close = () => {
-    // спробуємо піти назад
-    if (window.history.length > 1) {
+  const close = useCallback(() => {
+    // якщо є куди вертатись у History — йдемо back (кращий UX),
+    // інакше — replace на closeHref (fallback для прямого входу по URL)
+    if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {
-      // або fallback на список
-      router.push(fallbackHref);
+      router.replace(closeHref, { scroll: false });
     }
-  };
+  }, [router, closeHref]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
+      if (e.key === "Escape") {
+        e.preventDefault();
+        close();
+      }
     };
-    window.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey);
+
+    // блокування скролу фону
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
     return () => {
-      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, []); // eslint-disable-line
+  }, [close]);
 
-  const node = (
-    <div className={styles.backdrop} onClick={close} role="presentation">
-      <div
-        className={styles.modal}
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title || "Modal window"}
-      >
+  // Клік по бекдропу закриває, всередині — ні
+  const onBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget) close();
+  };
+
+  return (
+    <div
+      className={css.backdrop}
+      role="dialog"
+      aria-modal="true"
+      onClick={onBackdropClick}
+    >
+      <div className={css.modal} onClick={(e) => e.stopPropagation()}>
+        {title && <h3 style={{ margin: 0 }}>{title}</h3>}
+
         <button
           type="button"
-          className={styles.close}
-          onClick={close}
           aria-label="Close"
+          onClick={close}
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 14,
+            background: "transparent",
+            border: 0,
+            fontSize: 22,
+            lineHeight: 1,
+            cursor: "pointer",
+          }}
         >
           ×
         </button>
-        {title && <h2 className={styles.title}>{title}</h2>}
-        <div>{children}</div>
+
+        <div style={{ marginTop: 12 }}>{children}</div>
       </div>
     </div>
   );
-
-  return createPortal(node, document.body);
 }

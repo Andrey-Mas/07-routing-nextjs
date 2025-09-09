@@ -34,10 +34,6 @@
   list-style: none;
   min-width: 180px;
   z-index: 1000;
-  display: none;
-}
-.open {
-  display: block;
 }
 
 .menuItem {
