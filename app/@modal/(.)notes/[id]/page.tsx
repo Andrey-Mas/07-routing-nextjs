@@ -1,6 +1,6 @@
 // app/@modal/(.)notes/[id]/page.tsx
 import Modal from "@/components/Modal/Modal";
-import NoteModal from "@/components/NoteModal/NoteModal";
+import NotePreviewClient from "./NotePreview.client";
 
 export default async function NoteDetailsModal({
   params,
@@ -16,7 +16,7 @@ export default async function NoteDetailsModal({
 
   return (
     <Modal title="Note details" closeHref={from}>
-      <NoteModal id={id} />
+      <NotePreviewClient id={id} />
     </Modal>
   );
 }
