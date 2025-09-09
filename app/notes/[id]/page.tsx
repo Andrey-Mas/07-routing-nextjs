@@ -1,44 +1,43 @@
-// app/notes/[id]/page.tsx
+import Link from "next/link";
 import { fetchNoteById } from "@/lib/api";
-import type { Note } from "@/types/note";
+import css from "@/styles/NotePreview.module.css";
 
-export const dynamic = "force-dynamic";
-
-type MaybePromise<T> = T | Promise<T>;
-
-export default async function NoteDetailsPage({
+export default async function NotePage({
   params,
+  searchParams,
 }: {
-  params: MaybePromise<{ id: string }>;
+  params: Promise<{ id: string }>;
+  searchParams?: Promise<{ from?: string }>;
 }) {
-  // ⚠️ await params
-  const p =
-    typeof (params as any)?.then === "function"
-      ? await (params as Promise<{ id: string }>)
-      : (params as { id: string });
+  const { id } = await params;
+  const sp = (await searchParams) ?? {};
+  const from =
+    typeof sp.from === "string" && sp.from ? sp.from : "/notes/filter/All";
 
-  const note: Note = await fetchNoteById(p.id);
+  const note = await fetchNoteById(id);
 
   return (
-    <main style={{ maxWidth: 860, margin: "40px auto", padding: "0 16px" }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700 }}>{note.title}</h1>
-      <p style={{ color: "#4b5563", whiteSpace: "pre-wrap", marginTop: 8 }}>
-        {note.content}
-      </p>
-      <div style={{ marginTop: 12 }}>
-        <span
-          style={{
-            display: "inline-block",
-            padding: "4px 10px",
-            fontSize: 12,
-            borderRadius: 999,
-            background: "#eef2ff",
-            color: "#3b82f6",
-            border: "1px solid #dbeafe",
-          }}
-        >
-          {note.tag}
-        </span>
+    <main className={css.container}>
+      {/* Кнопка-навігація як посилання */}
+      <Link href={from} className={css.backBtn}>
+        ← Back
+      </Link>
+
+      <div className={css.item}>
+        <div className={css.header}>
+          <h2>{note.title}</h2>
+          <span className={css.tag}>{note.tag}</span>
+        </div>
+
+        <div className={css.content}>{note.content}</div>
+
+        <div className={css.date}>
+          {note.updatedAt
+            ? new Date(note.updatedAt).toLocaleString()
+            : note.createdAt
+              ? new Date(note.createdAt).toLocaleString()
+              : ""}
+        </div>
       </div>
     </main>
   );
