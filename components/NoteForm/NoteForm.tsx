@@ -1,37 +1,95 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createNote } from "@/lib/api";
+import type { BackendTag } from "@/types/note";
 import css from "./NoteForm.module.css";
 
-type BackendTag = "Todo" | "Work" | "Personal" | "Meeting" | "Shopping";
+type Props = {
+  backTo?: string;
 
-export default function NoteForm({ backTo }: { backTo?: string }) {
+  // керовані пропси (необов’язкові)
+  title?: string;
+  content?: string;
+  tag?: BackendTag;
+  onChange?: (
+    p: Partial<{ title: string; content: string; tag: BackendTag }>,
+  ) => void;
+
+  // колбеки
+  onSuccess?: () => void;
+  onCancel?: () => void;
+};
+
+export default function NoteForm({
+  backTo,
+  title: titleProp,
+  content: contentProp,
+  tag: tagProp,
+  onChange,
+  onSuccess,
+  onCancel,
+}: Props) {
   const router = useRouter();
   const qc = useQueryClient();
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [tag, setTag] = useState<BackendTag>("Todo");
 
-  const { mutateAsync, isPending, error } = useMutation({
+  // якщо передані керовані пропси/колбек — працюємо у controlled-режимі
+  const isControlled = useMemo(
+    () =>
+      onChange != null ||
+      titleProp != null ||
+      contentProp != null ||
+      tagProp != null,
+    [onChange, titleProp, contentProp, tagProp],
+  );
+
+  // локальний стан — тільки для некерованого режиму
+  const [titleLocal, setTitleLocal] = useState("");
+  const [contentLocal, setContentLocal] = useState("");
+  const [tagLocal, setTagLocal] = useState<BackendTag>("Todo");
+
+  const title = isControlled ? (titleProp ?? "") : titleLocal;
+  const content = isControlled ? (contentProp ?? "") : contentLocal;
+  const tag = isControlled ? (tagProp ?? "Todo") : tagLocal;
+
+  const setTitle = (v: string) =>
+    isControlled ? onChange?.({ title: v }) : setTitleLocal(v);
+  const setContent = (v: string) =>
+    isControlled ? onChange?.({ content: v }) : setContentLocal(v);
+  const setTag = (v: BackendTag) =>
+    isControlled ? onChange?.({ tag: v }) : setTagLocal(v);
+
+  const {
+    mutateAsync: save,
+    isPending,
+    error,
+    isError,
+  } = useMutation({
     mutationFn: createNote,
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["notes"] });
-      await qc.refetchQueries({ queryKey: ["notes"], type: "active" });
-      router.replace(backTo ?? "/notes/filter/All");
+
+      // очищаємо лише локальний стан; у керованому режимі — батько сам чистить
+      if (!isControlled) {
+        setTitleLocal("");
+        setContentLocal("");
+        setTagLocal("Todo");
+      }
+
+      if (onSuccess) onSuccess();
+      else if (backTo) router.push(backTo);
     },
   });
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await mutateAsync({ title, content, tag });
+    await save({ title, content, tag });
   };
 
   return (
-    <form className={css.form} onSubmit={onSubmit}>
+    <form onSubmit={onSubmit} className={css.form}>
       <div className={css.formGroup}>
         <label htmlFor="title">Title</label>
         <input
@@ -72,14 +130,19 @@ export default function NoteForm({ backTo }: { backTo?: string }) {
         </select>
       </div>
 
-      {error && <p className={css.error}>{(error as Error).message}</p>}
+      {isError && <p className={css.error}>{error?.message}</p>}
 
       <div className={css.actions}>
-        {backTo && (
-          <Link href={backTo} scroll={false} className={css.cancelButton}>
-            Cancel
-          </Link>
-        )}
+        <button
+          type="button"
+          className={css.cancelButton}
+          onClick={() =>
+            onCancel ? onCancel() : backTo ? router.push(backTo) : null
+          }
+        >
+          Cancel
+        </button>
+
         <button type="submit" disabled={isPending} className={css.submitButton}>
           {isPending ? "Saving…" : "Save"}
         </button>

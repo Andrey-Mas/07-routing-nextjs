@@ -228,8 +228,8 @@ export const updateNote = async (
   return data;
 };
 
-export const deleteNote = async (id: string): Promise<{ id: string }> => {
+export const deleteNote = async (id: string): Promise<Note> => {
   if (!id) throw new Error("Note id is required");
-  await api.delete(`/notes/${encodeURIComponent(id)}`);
-  return { id };
+  const { data } = await api.delete<Note>(`/notes/${encodeURIComponent(id)}`);
+  return data;
 };

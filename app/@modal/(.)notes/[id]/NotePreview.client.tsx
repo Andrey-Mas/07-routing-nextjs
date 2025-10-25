@@ -7,6 +7,7 @@ export default function NotePreviewClient({ id }: { id: string }) {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["note", id],
     queryFn: () => fetchNoteById(id),
+    refetchOnMount: true,
   });
 
   if (isLoading) return <p>Loading…</p>;
@@ -16,20 +17,19 @@ export default function NotePreviewClient({ id }: { id: string }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <h2 style={{ margin: 0 }}>{data.title}</h2>
+      {/* Заголовок + прибрали кнопку Close, залишили тільки “×” у Modal */}
+      <h2 style={{ margin: 0 }}>{data.title}</h2>
+
+      <div style={{ fontSize: 12, color: "#666" }}>
+        {data.createdAt ? new Date(data.createdAt).toLocaleString() : null}
+      </div>
+
+      <div>
         <span
           style={{
             display: "inline-block",
-            padding: "2px 8px",
+            padding: "2px 10px",
             fontSize: 12,
-            color: "#0d6efd",
             background: "#e7f1ff",
             border: "1px solid #b6d4fe",
             borderRadius: 12,
@@ -38,6 +38,7 @@ export default function NotePreviewClient({ id }: { id: string }) {
           {data.tag}
         </span>
       </div>
+
       <div style={{ whiteSpace: "pre-wrap", color: "#333", lineHeight: 1.5 }}>
         {data.content}
       </div>

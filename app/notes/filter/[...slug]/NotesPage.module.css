@@ -1,32 +1,57 @@
-.app {
-  width: 90%;
-  max-width: 1280px;
-  margin: 0px auto;
-  padding: 0 16px 16px;
-  flex: 1;
+.container {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 16px;
 }
 
-.toolbar {
-  margin-bottom: 16px;
+.headerRow {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  padding: 0 0 16px; /* було: 16px 0 */
-  background-color: #f8f9fa;
-  border-bottom: 1px solid #dee2e6;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
 }
 
-.button {
-  padding: 6px 12px;
-  font-size: 16px;
-  color: #fff;
-  background-color: #0d6efd;
-  border: none;
-  border-radius: 4px;
+.title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.createButton {
+  padding: 8px 12px;
+  border: 1px solid #d0d7de;
+  border-radius: 10px;
+  background: #f6f8fa;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  font-weight: 600;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+.createButton:hover {
+  background: #eef1f4;
+  border-color: #c4cdd6;
 }
 
-.button:hover {
-  background-color: #0b5ed7;
+.homeLink {
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+.homeLink:hover {
+  border-color: #e1e4e8;
+  background: #fafbfc;
+}
+
+.errorText {
+  color: #dc3545;
+  margin-top: 12px;
 }

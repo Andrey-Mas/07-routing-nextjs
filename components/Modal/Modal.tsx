@@ -8,71 +8,55 @@ export default function Modal({
   title,
   closeHref,
   children,
+  onClose,
 }: {
   title?: string;
-  closeHref: string; // URL куди повертатись
+  closeHref: string;
   children: React.ReactNode;
+  onClose?: () => void;
 }) {
   const router = useRouter();
 
+  // ✅ Надійне закриття: спочатку back, інакше push(closeHref)
   const close = useCallback(() => {
-    // якщо є куди вертатись у History — йдемо back (кращий UX),
-    // інакше — replace на closeHref (fallback для прямого входу по URL)
-    if (typeof window !== "undefined" && window.history.length > 1) {
-      router.back();
-    } else {
-      router.replace(closeHref, { scroll: false });
+    if (onClose) {
+      onClose();
+      return;
     }
-  }, [router, closeHref]);
+    try {
+      // якщо є історія — повертаємось
+      if (typeof window !== "undefined" && window.history.length > 1) {
+        router.back();
+      } else {
+        router.push(closeHref);
+      }
+    } catch {
+      router.push(closeHref);
+    }
+  }, [onClose, router, closeHref]);
+
+  const onKey = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    },
+    [close],
+  );
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        close();
-      }
-    };
     document.addEventListener("keydown", onKey);
-
-    // блокування скролу фону
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [close]);
-
-  // Клік по бекдропу закриває, всередині — ні
-  const onBackdropClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.target === e.currentTarget) close();
-  };
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onKey]);
 
   return (
-    <div
-      className={css.backdrop}
-      role="dialog"
-      aria-modal="true"
-      onClick={onBackdropClick}
-    >
+    <div className={css.backdrop} onClick={close}>
       <div className={css.modal} onClick={(e) => e.stopPropagation()}>
-        {title && <h3 style={{ margin: 0 }}>{title}</h3>}
+        {title ? <h3 className={css.title}>{title}</h3> : null}
 
         <button
           type="button"
+          className={css.close}
           aria-label="Close"
           onClick={close}
-          style={{
-            position: "absolute",
-            top: 10,
-            right: 14,
-            background: "transparent",
-            border: 0,
-            fontSize: 22,
-            lineHeight: 1,
-            cursor: "pointer",
-          }}
         >
           ×
         </button>
