@@ -36,8 +36,22 @@ export default function NoteList({ notes }: { notes: Note[] }) {
               >
                 View
               </Link>
-              <Link href={`/notes/edit/${n.id}`} className={css.link}>Edit</Link>
-              <button className={css.button} onClick={() => remove(n.id)} disabled={isPending}>
+              <Link
+                href={{
+                  pathname: `/notes/${n.id}/edit`,
+                  query: { from: fromHref },
+                }}
+                scroll={false}
+                className={css.link}
+              >
+                Edit
+              </Link>
+
+              <button
+                className={css.button}
+                onClick={() => remove(n.id)}
+                disabled={isPending}
+              >
                 {isPending ? "Deleting…" : "Delete"}
               </button>
             </div>

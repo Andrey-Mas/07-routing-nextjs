@@ -1,7 +1,8 @@
+import Modal from "@/components/Modal/Modal";
 import EditNoteForm from "@/components/NoteForm/EditNoteForm";
 import { fetchNoteById } from "@/lib/api";
 
-export default async function EditNotePage({
+export default async function EditNoteModalPage({
   params,
   searchParams,
 }: {
@@ -16,13 +17,12 @@ export default async function EditNotePage({
   const note = await fetchNoteById(id);
 
   return (
-    <main style={{ width: "90%", maxWidth: 800, margin: "20px auto" }}>
-      <h1 style={{ margin: 0, marginBottom: 16 }}>Edit note</h1>
+    <Modal title="Edit note" closeHref={from}>
       <EditNoteForm
         id={note.id}
         initial={{ title: note.title, content: note.content, tag: note.tag }}
         backTo={from}
       />
-    </main>
+    </Modal>
   );
 }
