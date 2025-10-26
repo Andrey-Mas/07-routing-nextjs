@@ -78,22 +78,6 @@ export default function NotePreviewClient({ id }: { id: string }) {
       </div>
 
       <div style={{ display: "flex", gap: 8 }}>
-        <Link
-          href={{ pathname: `/notes/${id}/edit`, query: { from: fromHref } }}
-          scroll={false}
-          style={{
-            display: "inline-block",
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #ccc",
-            background: "transparent",
-            textDecoration: "none",
-            cursor: "pointer",
-          }}
-        >
-          Edit
-        </Link>
-
         <button
           type="button"
           onClick={handleClose}
